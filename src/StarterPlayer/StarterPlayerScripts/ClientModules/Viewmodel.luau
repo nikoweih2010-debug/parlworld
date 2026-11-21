@@ -136,6 +136,24 @@ Builders.glutwerfer = function(m)
 end
 
 Builders.ball = function(m, tierDef)
+	-- Mesh-Vorlage (Shared.ItemMeshes.fangkugel_stufe<N>) bevorzugen
+	local folder = game:GetService("ReplicatedStorage").Shared:FindFirstChild("ItemMeshes")
+	local tpl = folder and folder:FindFirstChild("fangkugel_stufe" .. tostring(tierDef.tier))
+	if tpl then
+		local p = tpl:Clone()
+		p.Name = "Body"
+		p.Size = tpl.Size * 0.95
+		p.CFrame = CF(0, 0.15, -0.1)
+		p.Anchored = false
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Massless = true
+		p.Parent = m
+		mk(m, V(0.1, 0.1, 0.1), CF(0, 0.2, -0.6), RGB(255, 255, 255), M.Neon, nil, { name = "Muzzle", t = 1 })
+		return
+	end
 	local b = mk(m, V(0.9, 0.9, 0.9), CF(0, 0.15, -0.1), tierDef.color, M.SmoothPlastic, BALL, { name = "Body" })
 	mk(m, V(0.2, 0.93, 0.93), CF(0, 0.15, -0.1) * ANG(0, 0, r(90)), tierDef.band, M.Neon, CYL)
 	mk(m, V(0.25, 0.25, 0.25), CF(0, 0.15, -0.55), RGB(255, 255, 255), M.SmoothPlastic, BALL)

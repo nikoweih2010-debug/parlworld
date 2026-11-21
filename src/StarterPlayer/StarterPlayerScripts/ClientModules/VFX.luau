@@ -687,8 +687,29 @@ end
 ------------------------------------------------------------------ Fangkugel
 local balls = {}
 
+-- Mesh-Vorlage für eine Kugelstufe (Shared.ItemMeshes.fangkugel_stufe<N>), sonst nil
+local function ballMesh(tier)
+	local folder = Shared:FindFirstChild("ItemMeshes")
+	return folder and folder:FindFirstChild("fangkugel_stufe" .. tostring(tier)) or nil
+end
+
 local function makeBall(tier)
 	local t = Spheres.Get(tier) or Spheres.Tiers[1]
+	local tpl = ballMesh(t.tier)
+	if tpl then
+		local m = tpl:Clone()
+		m.Size = tpl.Size * 1.3
+		m.CFrame = CFrame.new()
+		m.Anchored = true
+		m.CanCollide = false
+		m.CanQuery = false
+		m.CanTouch = false
+		m.CastShadow = false
+		m.Parent = fx
+		Debris:AddItem(m, 8)
+		trail(m, t.band, 0.6, 0.2)
+		return m
+	end
 	local b = part({ shape = Enum.PartType.Ball, size = Vector3.one * 1.3, color = t.color, material = Enum.Material.SmoothPlastic, life = 8 })
 	local band = part({ shape = Enum.PartType.Cylinder, size = Vector3.new(0.3, 1.36, 1.36), color = t.band, life = 8 })
 	band.Anchored = false

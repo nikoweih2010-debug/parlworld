@@ -660,9 +660,11 @@ local MeshRigs = {
 			{ "Head", "Body", V(0, 2.55, -0.6) },
 			{ "WingL", "Body", V(1.0, 2.35, -0.49) },  -- +X-Flügel
 			{ "WingR", "Body", V(-1.0, 2.35, -0.49) }, -- -X-Flügel
+			{ "LegL", "Body", V(0.59, 1.0, -0.6) },   -- Hüfte über dem +X-Fuß (Laufanimation)
+			{ "LegR", "Body", V(-0.6, 1.0, -0.6) },   -- Hüfte über dem -X-Fuß
 		},
 		-- Namen stammen aus der KI-Segmentierung (vor der 180°-Drehung benannt): "left wing" liegt jetzt bei +X
-		parts = { head = "Head", body = "Body", ["left wing"] = "WingL", ["right wing"] = "WingR", feet = "Body" },
+		parts = { head = "Head", body = "Body", ["left wing"] = "WingL", ["right wing"] = "WingR", feet = "Body", foot_px = "LegL", foot_nx = "LegR" },
 		weak = { head = true },
 	},
 }

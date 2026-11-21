@@ -37,13 +37,18 @@ local function collect(model)
 	return joints
 end
 
-local function register(model)
-	if recs[model] or not model:IsA("Model") then return end
+local function register(model, attempt)
+	if recs[model] or not model:IsA("Model") or not model.Parent then return end
 	local species = model:GetAttribute("Species")
 	local def = species and Pals.Get(species)
 	if not def then return end
 	local root = model.PrimaryPart or model:FindFirstChild("Root")
-	if not root then return end
+	if not root then
+		-- Streaming: Teile kommen evtl. später an -> kurz erneut versuchen
+		attempt = (attempt or 0) + 1
+		if attempt <= 20 then task.delay(0.25, register, model, attempt) end
+		return
+	end
 	local r = {
 		model = model, root = root, def = def, joints = collect(model), gait = Gaits[def.model] or Gaits.glutwiesel,
 		phase = math.random() * 10, scale = def.scale or 1, speed = 0, lastHit = -10, lastAtk = -10,
@@ -51,6 +56,10 @@ local function register(model)
 		down = 0, wind = 0, strike = 0, accum = 0,
 	}
 	recs[model] = r
+	-- später eintreffende Gelenke (Streaming/Replikation) nachtragen
+	model.DescendantAdded:Connect(function(d)
+		if d:IsA("Motor6D") then r.joints[d.Name] = d end
+	end)
 	model:GetAttributeChangedSignal("HitTick"):Connect(function()
 		r.lastHit = os.clock()
 		Animator.Flash(model)
@@ -128,6 +137,10 @@ local function animate(r, now, dt)
 	roll += sin(now * 60) * rad(5) * hit
 	-- geschwächt: auf die Seite kippen
 	roll += rad(78) * down
+	-- Zweibeiner watscheln beim Laufen: Körper kippt im Schritt-Takt zur Seite
+	if g.biped then
+		roll += math.sin(t * g.freq * (0.6 + 0.4 * move)) * rad(9) * math.min(move, 1) * (1 - down)
+	end
 	yOff -= (model:GetAttribute("RootHeight") or 2) * 0.45 * down
 	if g.fly then
 		yOff += sin(t * 2) * 0.4 * s * (1 - down)

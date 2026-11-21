@@ -170,6 +170,8 @@ function CreatureService.Spawn(speciesId, opts)
 	if opts.owner then model:SetAttribute("OwnerUserId", opts.owner.UserId) end
 
 	model:PivotTo(CFrame.new(ground + Vector3.new(0, rootH + hover, 0)) * CFrame.Angles(0, yaw, 0))
+	-- Bei aktivem Instance Streaming die Kreatur immer als Ganzes zum Client schicken
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	model.Parent = opts.parent or folder
 	pcall(function() root:SetNetworkOwner(nil) end)
 	CollectionService:AddTag(model, "Creature")
