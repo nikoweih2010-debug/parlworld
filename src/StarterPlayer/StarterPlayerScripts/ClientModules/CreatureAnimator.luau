@@ -112,6 +112,11 @@ local function animate(r, now, dt)
 	local down, wind = r.down, r.wind
 	local atk = Attacks[model:GetAttribute("AttackId") or ""]
 	local kind = atk and atk.kind or "lunge"
+	-- Ausschlag-Faktoren pro Körperteil (Mesh-Pals setzen kleinere Werte, damit keine Schnittkanten aufklaffen)
+	local aHead = model:GetAttribute("AnimScaleHead") or 1
+	local aLeg = model:GetAttribute("AnimScaleLeg") or 1
+	local aTail = model:GetAttribute("AnimScaleTail") or 1
+	local aWing = model:GetAttribute("AnimScaleWing") or 1
 
 	-- Körper
 	local breathe = sin(t * 2.2) * 0.04 * s
@@ -153,11 +158,11 @@ local function animate(r, now, dt)
 	local lookYaw = sin(t * 0.55) * 0.35 * (1 - move * 0.6) * (1 - wind)
 	local hp = sin(t * 0.9) * 0.08 - 0.35 * wind + 0.4 * strike + 0.5 * down
 	if kind == "projectile" or kind == "beam" then hp = sin(t * 0.9) * 0.08 - 0.45 * wind + 0.25 * strike end
-	setT(J.Head, CFA(hp, lookYaw, sin(t * 60) * 0.06 * hit))
+	setT(J.Head, CFA(hp * aHead, lookYaw * aHead, sin(t * 60) * 0.06 * hit * aHead))
 
 	-- Beine
 	local f = g.freq * (0.6 + 0.4 * move)
-	local amp = g.amp * move * (1 - down)
+	local amp = g.amp * move * (1 - down) * aLeg
 	if g.biped then
 		setT(J.LegL, CFA(sin(t * f) * amp, 0, 0))
 		setT(J.LegR, CFA(sin(t * f + math.pi) * amp, 0, 0))
@@ -169,14 +174,14 @@ local function animate(r, now, dt)
 	else
 		local dangle = (g.hover or g.fly) and (sin(t * 2) * 0.15 + 0.2) or 0
 		local tuck = (g.hover and move > 0.3) and 0.3 or 0
-		setT(J.LegFL, CFA(sin(t * f) * amp + dangle - tuck - 0.3 * wind, 0, 0))
+		setT(J.LegFL, CFA(sin(t * f) * amp + dangle - tuck - 0.3 * wind * aLeg, 0, 0))
 		setT(J.LegBR, CFA(sin(t * f) * amp + dangle + tuck, 0, 0))
-		setT(J.LegFR, CFA(sin(t * f + math.pi) * amp + dangle - tuck - 0.3 * wind, 0, 0))
+		setT(J.LegFR, CFA(sin(t * f + math.pi) * amp + dangle - tuck - 0.3 * wind * aLeg, 0, 0))
 		setT(J.LegBL, CFA(sin(t * f + math.pi) * amp + dangle + tuck, 0, 0))
 	end
 
 	-- Schwanz
-	setT(J.Tail, CFA(sin(t * 1.3) * 0.08 + 0.2 * wind, sin(t * (1.8 + move * 4)) * (0.3 + move * 0.2), 0))
+	setT(J.Tail, CFA((sin(t * 1.3) * 0.08 + 0.2 * wind) * aTail, sin(t * (1.8 + move * 4)) * (0.3 + move * 0.2) * aTail, 0))
 
 	-- Flügel
 	if J.WingL then
@@ -188,7 +193,7 @@ local function animate(r, now, dt)
 		else
 			flap = sin(t * 2) * 0.1
 		end
-		flap *= (1 - down)
+		flap *= (1 - down) * aWing
 		setT(J.WingL, CFA(0, 0, flap))
 		setT(J.WingR, CFA(0, 0, -flap))
 		if J.WingL2 then

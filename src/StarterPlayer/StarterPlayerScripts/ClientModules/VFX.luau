@@ -238,6 +238,55 @@ local function trail(p, color, width, life)
 	return tr
 end
 
+------------------------------------------------------------------ Blender-Effektmeshes (Shared.VfxMeshes)
+local function vmesh(name, scale, life)
+	local folder = Shared:FindFirstChild("VfxMeshes")
+	local tpl = folder and folder:FindFirstChild(name)
+	if not tpl then return nil end
+	local m = tpl:Clone()
+	m.Size = tpl.Size * (scale or 1)
+	m.Anchored = true
+	m.CanCollide = false
+	m.CanQuery = false
+	m.CanTouch = false
+	m.CastShadow = false
+	m.Parent = fx
+	if life then Debris:AddItem(m, life) end
+	return m, (tpl.CFrame - tpl.CFrame.Position)
+end
+VFX.Mesh = vmesh
+
+local function hasMesh(name)
+	local folder = Shared:FindFirstChild("VfxMeshes")
+	return folder ~= nil and folder:FindFirstChild(name) ~= nil
+end
+
+-- Splitter/Federn mit einfacher Ballistik (Schwerkraft, Drehung, Ausblenden)
+local function flyPieces(names, origin, count, opts)
+	for i = 1, count do
+		local name = names[(i - 1) % #names + 1]
+		local m, rot = vmesh(name, opts.scale or 1, opts.life or 1.6)
+		if not m then return end
+		local a = math.random() * math.pi * 2
+		local vel = Vector3.new(math.cos(a) * opts.spread * (0.6 + math.random() * 0.6), opts.up * (0.7 + math.random() * 0.6), math.sin(a) * opts.spread * (0.6 + math.random() * 0.6))
+		local spin = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * (opts.spin or 14)
+		local start, life = os.clock(), (opts.life or 1.6)
+		local g = opts.gravity or 40
+		local floorY = opts.floorY
+		local conn
+		conn = RunService.RenderStepped:Connect(function()
+			local t = os.clock() - start
+			if t > life or not m.Parent then conn:Disconnect(); return end
+			local drag = opts.drag and math.exp(-t * opts.drag) or 1
+			local p = origin + vel * t * drag + Vector3.new(0, -0.5 * g * t * t, 0)
+			if opts.flutter then p += Vector3.new(math.sin(t * 9 + i) * 0.4, 0, math.cos(t * 7 + i) * 0.4) end
+			if floorY and p.Y < floorY then p = Vector3.new(p.X, floorY, p.Z) end
+			m.CFrame = CFrame.new(p) * CFrame.Angles(spin.X * t, spin.Y * t, spin.Z * t) * rot
+			if t > life * 0.65 then m.Transparency = math.clamp((t - life * 0.65) / (life * 0.35), 0, 1) end
+		end)
+	end
+end
+
 ------------------------------------------------------------------ Warnzeichen (Telegraph)
 local function chargeGlow(model, color, dur)
 	if not model or not model.PrimaryPart then return end
@@ -341,6 +390,20 @@ end
 local Impact = {}
 
 Impact.peck = function(d, atk)
+	-- Hieb-Sichel in Blickrichtung + wirbelnde Federn
+	local model = creatureModel(d.id)
+	local look = model and model.PrimaryPart and model.PrimaryPart.CFrame.LookVector or Vector3.new(0, 0, -1)
+	look = Vector3.new(look.X, 0, look.Z).Unit
+	local sl, rot = vmesh("vfx_slash", 2.2, 0.4)
+	if sl then
+		local c = d.pos + Vector3.new(0, 1.6, 0) + look * 1.2
+		local base = CFrame.lookAt(c, c + look)
+		animatePath(sl, 0.28, function(a)
+			sl.Transparency = a ^ 1.5
+			return base * CFrame.Angles(0, 0, math.rad(-25 + 50 * a)) * CFrame.Angles(math.rad(-10), math.rad(-60 + 120 * a), 0) * rot
+		end)
+	end
+	flyPieces({ "vfx_feather" }, d.pos + Vector3.new(0, 1.8, 0), 6, { scale = 0.9, spread = 7, up = 9, gravity = 8, drag = 2.5, life = 1.5, spin = 6, flutter = true })
 	burst(d.pos + Vector3.new(0, 1.5, 0), { color = Color3.fromRGB(255, 235, 170), count = 18, speed = { 6, 14 }, size = 0.8 })
 	burst(d.pos + Vector3.new(0, 1.5, 0), { tex = TEX.square, color = Color3.fromRGB(255, 250, 230), count = 8, speed = { 4, 8 }, size = 0.4, accel = Vector3.new(0, -20, 0), life = { 0.6, 1 }, light = 0 })
 	shockwave(d.pos, 1, 5, atk.color, 0.25)
@@ -348,6 +411,8 @@ Impact.peck = function(d, atk)
 end
 
 Impact.egg = function(d, atk)
+	flyPieces({ "vfx_eggshell_1", "vfx_eggshell_2", "vfx_eggshell_3", "vfx_eggshell_4", "vfx_eggshell_5" }, d.pos + Vector3.new(0, 0.6, 0), 5,
+		{ scale = 1.4, spread = 9, up = 11, gravity = 45, life = 1.4, spin = 16, floorY = d.pos.Y + 0.15 })
 	local splat = disc(d.pos, 0.5, Color3.fromRGB(255, 210, 60), 0.15, 0.1, 2.4)
 	splat.Material = Enum.Material.SmoothPlastic
 	tween(splat, 0.15, { Size = Vector3.new(0.1, atk.radius * 1.6, atk.radius * 1.6) })
@@ -358,6 +423,19 @@ Impact.egg = function(d, atk)
 end
 
 Impact.ember_pounce = function(d, atk)
+	-- Flammenkranz schlägt aus dem Boden, wächst und erlischt
+	local ring, rot = vmesh("vfx_flamering", 0.6, 0.75)
+	if ring then
+		local tplSize = ring.Size
+		local r = (atk.radius or 6) * 0.45
+		animatePath(ring, 0.7, function(a)
+			local grow = 0.35 + (1 - (1 - a) ^ 3) * r
+			local height = math.sin(math.min(1, a * 1.6) * math.pi) * 1.6 + 0.2
+			ring.Size = Vector3.new(tplSize.X * grow, tplSize.Y * height, tplSize.Z * grow)
+			ring.Transparency = math.clamp((a - 0.55) / 0.45, 0, 1)
+			return CFrame.new(d.pos + Vector3.new(0, ring.Size.Y / 2, 0)) * CFrame.Angles(0, a * 1.5, 0) * rot
+		end)
+	end
 	burst(d.pos + Vector3.new(0, 1, 0), { tex = TEX.fire, color = ColorSequence.new(Color3.fromRGB(255, 200, 80), Color3.fromRGB(255, 60, 20)), count = 30, speed = { 6, 16 }, size = 2.5, life = { 0.3, 0.7 } })
 	burst(d.pos + Vector3.new(0, 1, 0), { tex = TEX.fsparks, color = Color3.fromRGB(255, 160, 60), count = 24, speed = { 10, 24 }, size = 0.6, accel = Vector3.new(0, -30, 0) })
 	shockwave(d.pos, 1, atk.radius * 1.2, atk.color, 0.35)
@@ -561,7 +639,16 @@ local projectiles = {}
 local function projectileVisual(atk, dir)
 	local v = atk.vfx
 	local p
-	if v == "ember_spit" then
+	if v == "ember_spit" and hasMesh("vfx_fireball") then
+		-- Flammenball aus Blender, Schweif zeigt nach hinten
+		local rot
+		p, rot = vmesh("vfx_fireball", 1.15)
+		p:SetAttribute("MeshRot", true)
+		p:SetAttribute("RotY", select(2, rot:ToEulerAnglesYXZ()))
+		emitter(p, { tex = TEX.fire, color = ColorSequence.new(Color3.fromRGB(255, 200, 80), Color3.fromRGB(255, 60, 20)), rate = 30, size = 1.1, speed = { 0, 1 }, life = { 0.15, 0.3 } })
+		local l = Instance.new("PointLight"); l.Color = Color3.fromRGB(255, 140, 50); l.Range = 9; l.Brightness = 2; l.Parent = p
+		trail(p, Color3.fromRGB(255, 120, 40), 0.8, 0.2)
+	elseif v == "ember_spit" then
 		p = part({ shape = Enum.PartType.Ball, size = Vector3.one * 1.1, color = Color3.fromRGB(255, 140, 40) })
 		emitter(p, { tex = TEX.fire, color = ColorSequence.new(Color3.fromRGB(255, 200, 80), Color3.fromRGB(255, 60, 20)), rate = 40, size = 1.4, speed = { 0, 1 }, life = { 0.15, 0.3 } })
 		trail(p, Color3.fromRGB(255, 120, 40), 0.8, 0.2)
@@ -619,7 +706,9 @@ function VFX.lob(data)
 	local atk = Attacks[data.atk]
 	if not atk then return end
 	local p
-	if atk.vfx == "egg" then
+	if atk.vfx == "egg" and hasMesh("vfx_egg") then
+		p = vmesh("vfx_egg", 1.45, atk.flight + 0.2)
+	elseif atk.vfx == "egg" then
 		p = part({ mesh = Enum.MeshType.Sphere, size = Vector3.new(1.1, 1.4, 1.1), color = Color3.fromRGB(255, 248, 230), material = Enum.Material.SmoothPlastic, life = atk.flight + 0.2 })
 	else
 		p = part({ shape = Enum.PartType.Ball, size = Vector3.one * 2.4, color = Color3.fromRGB(140, 200, 255), material = Enum.Material.Glass, t = 0.35, life = atk.flight + 0.2 })
@@ -884,6 +973,9 @@ RunService.RenderStepped:Connect(function()
 		else
 			local pos = p.from + p.dir * p.speed * math.max(0, e)
 			local cf = CFrame.lookAt(pos, pos + p.dir)
+			if p.part:GetAttribute("MeshRot") then
+				cf = cf * CFrame.Angles(0, p.part:GetAttribute("RotY") or 0, 0) * CFrame.Angles(0, 0, e * 9)
+			end
 			if p.spin then cf = cf * CFrame.Angles(0, 0, 0) * CFrame.Angles(0, e * 25, 0) end
 			p.part.CFrame = cf
 		end

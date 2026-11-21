@@ -666,6 +666,7 @@ local MeshRigs = {
 		-- Namen stammen aus der KI-Segmentierung (vor der 180°-Drehung benannt): "left wing" liegt jetzt bei +X
 		parts = { head = "Head", body = "Body", ["left wing"] = "WingL", ["right wing"] = "WingR", feet = "Body", foot_px = "LegL", foot_nx = "LegR" },
 		weak = { head = true },
+		anim = { head = 0.55, leg = 0.75, tail = 1, wing = 0.35 },
 	},
 	-- Feuerwiesel, generiert mit Roblox-KI nach Referenzbild (7 Teile)
 	glutwiesel = {
@@ -680,6 +681,8 @@ local MeshRigs = {
 		},
 		parts = { head = "Head", body = "Body", tail = "Tail", front_px = "LegFL", front_nx = "LegFR", back_px = "LegBL", back_nx = "LegBR" },
 		weak = { head = true },
+		anim = { head = 0.5, leg = 0.45, tail = 0.35, wing = 1 },
+		embers = "tail", -- glimmende Funken am Flammenschweif
 	},
 }
 
@@ -716,6 +719,30 @@ local function buildFromMesh(b, key, tpl)
 		end
 	end
 	b.model:SetAttribute("MeshModel", true)
+	if rig.embers then
+		local target = b.model:FindFirstChild(rig.embers)
+		if target then
+			local pe = Instance.new("ParticleEmitter")
+			pe.Name = "EmberFx"
+			pe.Texture = "rbxasset://textures/particles/fire_sparks_main.dds"
+			pe.Rate = 10
+			pe.Lifetime = NumberRange.new(0.5, 1.0)
+			pe.Speed = NumberRange.new(1, 3)
+			pe.SpreadAngle = Vector2.new(35, 35)
+			pe.Acceleration = Vector3.new(0, 4, 0)
+			pe.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25 * s), NumberSequenceKeypoint.new(1, 0) })
+			pe.Color = ColorSequence.new(Color3.fromRGB(255, 210, 90), Color3.fromRGB(255, 80, 20))
+			pe.LightEmission = 1
+			pe.EmissionDirection = Enum.NormalId.Top
+			pe.Parent = target
+		end
+	end
+	if rig.anim then
+		b.model:SetAttribute("AnimScaleHead", rig.anim.head)
+		b.model:SetAttribute("AnimScaleLeg", rig.anim.leg)
+		b.model:SetAttribute("AnimScaleTail", rig.anim.tail)
+		b.model:SetAttribute("AnimScaleWing", rig.anim.wing)
+	end
 end
 
 -- Öffentliche API ----------------------------------------------------

@@ -1,3 +1,4 @@
 *.lock
 backup/
 *.rbxl.lock
+blender/out/vfx_preview.png
