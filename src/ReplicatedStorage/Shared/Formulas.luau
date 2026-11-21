@@ -6,7 +6,7 @@ local Weapons = require(Config.Weapons)
 
 local Formulas = {}
 
-Formulas.LevelStatBonus = 0.08
+Formulas.LevelStatBonus = 0.15 -- Lebenspunkte pro Level (+15 %): höhere Level brauchen bessere Waffen
 Formulas.MaxLevel = 30
 
 function Formulas.LevelMult(level)

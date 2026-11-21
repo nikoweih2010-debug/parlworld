@@ -69,7 +69,7 @@ local function rewardWild(rec, contributors)
 	for _, player in ipairs(contributors) do
 		local d = DataService.Get(player)
 		if d then
-			local base = def.reward * (1 + 0.06 * (rec.level - 1))
+			local base = def.reward * (1 + 0.10 * (rec.level - 1))
 			local got = DataService.AddMoney(player, base, true)
 			d.stats.defeated += 1
 			Net.NotifyPlayer(player, def.name .. " besiegt!  +" .. got .. " G" .. (rec.def.catchable ~= false and "  – jetzt Fangkugel werfen!" or ""), "money")

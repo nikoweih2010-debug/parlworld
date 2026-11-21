@@ -25,8 +25,8 @@ Progression.Trainers = {
 		rewardText = "Belohnung: Glutwerfer (Granatwerfer, Flächenschaden) + 400 Gold + Zugang zu den Wurzelruinen",
 		rewardMoney = 400, rewardWeapon = "glutwerfer",
 		team = {
-			{ species = "glutwiesel", level = 6, hpMult = 1.3 },
-			{ species = "bachzange", level = 7, hpMult = 1.2 },
+			{ species = "glutwiesel", level = 6, hpMult = 1.0 },
+			{ species = "bachzange", level = 7, hpMult = 1.0 },
 		},
 		arena = Vector3.new(72, 0, -72), arenaRadius = 28,
 		requiresTutorialStep = nil,

@@ -667,6 +667,20 @@ local MeshRigs = {
 		parts = { head = "Head", body = "Body", ["left wing"] = "WingL", ["right wing"] = "WingR", feet = "Body", foot_px = "LegL", foot_nx = "LegR" },
 		weak = { head = true },
 	},
+	-- Feuerwiesel, generiert mit Roblox-KI nach Referenzbild (7 Teile)
+	glutwiesel = {
+		joints = {
+			{ "Body", "Root", V(0, 1.83, -0.62) },
+			{ "Head", "Body", V(0, 2.61, -1.5) },
+			{ "Tail", "Body", V(0, 1.82, 0.92) },
+			{ "LegFL", "Body", V(0.39, 1.61, -1.4) },
+			{ "LegFR", "Body", V(-0.39, 1.61, -1.4) },
+			{ "LegBL", "Body", V(0.41, 1.56, 0.51) },
+			{ "LegBR", "Body", V(-0.41, 1.56, 0.51) },
+		},
+		parts = { head = "Head", body = "Body", tail = "Tail", front_px = "LegFL", front_nx = "LegFR", back_px = "LegBL", back_nx = "LegBR" },
+		weak = { head = true },
+	},
 }
 
 local function meshTemplate(key)

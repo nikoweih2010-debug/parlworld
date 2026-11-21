@@ -45,6 +45,10 @@ local lastThrow = 0
 local bloom = 0
 local recoilPitch, recoilVel = 0, 0
 local recoilBack = 0
+local recoilYaw = 0      -- kleiner seitlicher Versatz pro Schuss (Kamera)
+local shotKick = 0       -- kurzer Waffen-Stoß im Bild (0..1), federt schnell zurück
+local kickRoll = 0       -- Kipprichtung des aktuellen Stoßes
+local kickScale = 0      -- Stärke abhängig von der Waffe
 local shake = 0
 local equipT = 0
 local throwAnim = 0
@@ -269,9 +273,15 @@ local function fire()
 	Remotes.Fire:FireServer(w.id, origin, dirs)
 	VFX.Sound(w.sound, nil, 1)
 	-- Rückstoss
-	local k = w.recoil * (WC.Aiming and 0.6 or 1)
-	recoilVel += k * 0.9
-	recoilBack = math.min(0.25, recoilBack + 0.035 * k)
+	local k = w.recoil * (WC.Aiming and 0.5 or 1)
+	-- Kamera: deutlich weniger Hochreißen als vorher, leichter seitlicher Zufall
+	recoilVel += k * 0.42
+	recoilYaw += (math.random() - 0.5) * k * 0.25
+	recoilBack = math.min(0.12, recoilBack + 0.02 * k)
+	-- Viewmodel: kurzer Stoß, der schnell zurückfedert
+	shotKick = 1
+	kickScale = math.clamp(w.recoil / 4, 0.25, 1) * (WC.Aiming and 0.55 or 1)
+	kickRoll = (math.random() < 0.5 and -1 or 1) * (0.5 + math.random() * 0.5)
 	bloom = math.min(6, bloom + (w.bloom or 0.15))
 	if WC.Ammo[w.id] <= 0 then task.delay(0.2, WC.Reload) end
 	changed()
@@ -467,9 +477,11 @@ function WC.Init()
 
 		-- Rückstoss-Feder (Kamera nach oben, dann zurück)
 		recoilPitch += recoilVel * dt * 18
-		recoilVel -= recoilVel * math.clamp(dt * 18, 0, 1)
-		recoilPitch -= recoilPitch * math.clamp(dt * 7, 0, 1)
-		recoilBack -= recoilBack * math.clamp(dt * 12, 0, 1)
+		recoilVel -= recoilVel * math.clamp(dt * 20, 0, 1)
+		recoilPitch -= recoilPitch * math.clamp(dt * 9, 0, 1)
+		recoilYaw -= recoilYaw * math.clamp(dt * 9, 0, 1)
+		recoilBack -= recoilBack * math.clamp(dt * 14, 0, 1)
+		shotKick = math.max(0, shotKick - dt * 9)
 		shake = math.max(0, shake - dt * 2.5)
 
 		local fovTarget = BASE_FOV
@@ -480,7 +492,7 @@ function WC.Init()
 		local camCF = camera.CFrame
 		local sx = shake > 0 and (math.random() - 0.5) * shake * 0.04 or 0
 		local sy = shake > 0 and (math.random() - 0.5) * shake * 0.04 or 0
-		camera.CFrame = camCF * CFrame.Angles(math.rad(recoilPitch) + sx, sy, 0)
+		camera.CFrame = camCF * CFrame.Angles(math.rad(recoilPitch) + sx, math.rad(recoilYaw) + sy, 0)
 
 		-- Viewmodel
 		if not vm or not vm.Parent then
@@ -531,7 +543,10 @@ function WC.Init()
 		local throwCF = CFrame.new(0, 0.12 * math.sin(throwAnim * math.pi), -0.25 * math.sin(throwAnim * math.pi)) * CFrame.Angles(math.rad(25) * math.sin(throwAnim * math.pi), 0, 0)
 
 		local swayCF = CFrame.Angles(swayY * (1 - WC.AimBlend * 0.7), swayX * (1 - WC.AimBlend * 0.7), swayX * 0.5)
-		local recoilCF = CFrame.new(0, 0, recoilBack) * CFrame.Angles(math.rad(recoilPitch * 1.6), 0, 0)
+		-- Stoßkurve: schnell raus, weich zurück (Ease-Out)
+		local kc = shotKick * shotKick * kickScale
+		local recoilCF = CFrame.new(0, 0.015 * kc, recoilBack + 0.07 * kc)
+			* CFrame.Angles(math.rad(recoilPitch * 0.8 + 6 * kc), 0, math.rad(3 * kc * kickRoll))
 		vm:PivotTo(camera.CFrame * off * bob:Lerp(CFrame.identity, WC.AimBlend * 0.8) * idle * swayCF * recoilCF * reloadCF * equipCF * throwCF)
 	end)
 end

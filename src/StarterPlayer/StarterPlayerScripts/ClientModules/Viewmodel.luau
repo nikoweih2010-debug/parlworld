@@ -196,7 +196,23 @@ function Viewmodel.Build(weaponId, skin, sleeve, tierDef)
 	root.Parent = m
 	m.PrimaryPart = root
 	local b = Builders[weaponId]
-	if weaponId == "ball" then b(m, tierDef) elseif b then b(m) end
+	-- Realistische Waffen-Meshes (Shared.ItemMeshes.<waffenId>) bevorzugen; Mündung/Visier an den alten Positionen
+	local itemFolder = game:GetService("ReplicatedStorage").Shared:FindFirstChild("ItemMeshes")
+	local meshTpl = weaponId ~= "ball" and itemFolder and itemFolder:FindFirstChild(weaponId)
+	if meshTpl and Viewmodel.MeshPoints[weaponId] then
+		local pts = Viewmodel.MeshPoints[weaponId]
+		local p = meshTpl:Clone()
+		p.Name = "Body"
+		p.Anchored = false
+		p.Massless = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Parent = m
+		mk(m, V(0.1, 0.1, 0.1), CF(pts.muzzle), RGB(255, 255, 255), M.Neon, nil, { name = "Muzzle", t = 1 })
+		mk(m, V(0.1, 0.1, 0.1), CF(pts.sight), RGB(255, 255, 255), M.Neon, nil, { name = "Sight", t = 1 })
+	elseif weaponId == "ball" then b(m, tierDef) elseif b then b(m) end
 	local pose = Poses.default
 	if weaponId == "funkenpistole" then pose = Poses.pistol
 	elseif weaponId == "falkenauge" or weaponId == "dornenstreuer" or weaponId == "schwarmwerfer" then pose = Poses.long
@@ -218,7 +234,24 @@ end
 Viewmodel.Scale = 0.42
 
 -- Höhe der Visierlinie (für Zielen über Kimme), bereits skaliert
+-- Mündungs- und Visierpunkte für die Mesh-Waffen (Viewmodel-Raum vor Skalierung)
+Viewmodel.MeshPoints = {
+	funkenpistole = { muzzle = V(0, 0.28, -1.55), sight = V(0, 0.45, -0.9) },
+	dornenstreuer = { muzzle = V(0, 0.3, -2.35), sight = V(0, 0.45, -1.6) },
+	schwarmwerfer = { muzzle = V(0, 0.32, -2.3), sight = V(0, 0.72, -0.6) },
+	falkenauge = { muzzle = V(0, 0.3, -3.8), sight = V(0, 0.6, 0.2) },
+	glutwerfer = { muzzle = V(0, 0.35, -2.0), sight = V(0, 0.82, -0.8) },
+}
+
 local rawSight = { funkenpistole = 0.4, dornenstreuer = 0.4, schwarmwerfer = 0.56, falkenauge = 0.55, glutwerfer = 0.62, ball = 0.2 }
+-- Mit Mesh-Waffen liegt die Visierlinie etwas höher
+local meshSight = { funkenpistole = 0.43, dornenstreuer = 0.42, schwarmwerfer = 0.7, falkenauge = 0.6, glutwerfer = 0.8 }
+do
+	local folder = game:GetService("ReplicatedStorage"):WaitForChild("Shared"):FindFirstChild("ItemMeshes")
+	for id, y in pairs(meshSight) do
+		if folder and folder:FindFirstChild(id) then rawSight[id] = y end
+	end
+end
 Viewmodel.SightHeight = {}
 for k, v in pairs(rawSight) do Viewmodel.SightHeight[k] = v * Viewmodel.Scale end
 
