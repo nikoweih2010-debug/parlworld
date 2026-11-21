@@ -647,22 +647,82 @@ local RootHeights = {
 	surrfluegel = 1.6, daemmerluchs = 2.6, morvath = 12, noxen = 4.2,
 }
 
+----------------------------------------------------------------------
+-- Mesh-Modelle (z. B. aus Meshy): Vorlagen in Shared.CreatureMeshes.<key>
+-- Jede Vorlage enthält MeshParts im Modellraum (Boden = Y 0, vorne = -Z, Größe bei Scale 1).
+-- MeshRigs ordnet jedes Teil einem Animationsgelenk zu. Fehlt die Vorlage, wird der
+-- prozedurale Bauplan verwendet (Fallback).
+----------------------------------------------------------------------
+local MeshRigs = {
+	gackerling = {
+		joints = {
+			{ "Body", "Root", V(0, 1.9, 0) },
+			{ "Head", "Body", V(0, 2.55, -0.6) },
+			{ "WingL", "Body", V(1.0, 2.35, -0.49) },  -- +X-Flügel
+			{ "WingR", "Body", V(-1.0, 2.35, -0.49) }, -- -X-Flügel
+		},
+		-- Namen stammen aus der KI-Segmentierung (vor der 180°-Drehung benannt): "left wing" liegt jetzt bei +X
+		parts = { head = "Head", body = "Body", ["left wing"] = "WingL", ["right wing"] = "WingR", feet = "Body" },
+		weak = { head = true },
+	},
+}
+
+local function meshTemplate(key)
+	local folder = script.Parent:FindFirstChild("CreatureMeshes")
+	local tpl = folder and folder:FindFirstChild(key)
+	if tpl and MeshRigs[key] then return tpl end
+	return nil
+end
+
+local function buildFromMesh(b, key, tpl)
+	local rig = MeshRigs[key]
+	local s = b.s
+	for _, j in ipairs(rig.joints) do b:joint(j[1], j[2], j[3]) end
+	for _, src in ipairs(tpl:GetChildren()) do
+		if src:IsA("BasePart") then
+			local jointName = rig.parts[src.Name] or "Body"
+			local p = src:Clone()
+			p.Size = src.Size * s
+			p.CFrame = CFrame.new(src.Position * s) * (src.CFrame - src.CFrame.Position)
+			p.Anchored = false
+			p.CanCollide = false
+			p.CanTouch = false
+			p.CanQuery = true
+			p.Massless = true
+			p.CastShadow = true
+			if rig.weak and rig.weak[src.Name] then p:SetAttribute("WeakSpot", true) end
+			p.Parent = b.model
+			local w = Instance.new("WeldConstraint")
+			w.Part0 = b.joints[jointName]
+			w.Part1 = p
+			w.Parent = p
+			b.count += 1
+		end
+	end
+	b.model:SetAttribute("MeshModel", true)
+end
+
 -- Öffentliche API ----------------------------------------------------
 -- Baut ein Modell für eine Art (Pal-Config-Eintrag) und gibt es zurück (noch ohne Parent).
 function Builder.Build(palDef, overrideScale)
 	local key = palDef.model
 	local bp = Blueprints[key]
-	if not bp then error("CreatureBuilder: kein Bauplan für " .. tostring(key)) end
+	local tpl = meshTemplate(key)
+	if not bp and not tpl then error("CreatureBuilder: kein Bauplan für " .. tostring(key)) end
 	local scale = overrideScale or palDef.scale or 1
 	local b = Builder.new(palDef.id, scale, RootHeights[key] or 2)
-	bp(b, palDef.variant)
+	if tpl then
+		buildFromMesh(b, key, tpl)
+	else
+		bp(b, palDef.variant)
+	end
 	local model = b:finish(palDef.id)
 	model:SetAttribute("ModelKey", key)
 	return model
 end
 
 function Builder.HasBlueprint(key)
-	return Blueprints[key] ~= nil
+	return Blueprints[key] ~= nil or meshTemplate(key) ~= nil
 end
 
 return Builder
